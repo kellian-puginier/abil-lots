@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ABIL Prizes — Tour des Héraults
 
-## Getting Started
+Application web statique de gestion des récompenses pour le tournoi **Tour des Héraults** organisé par l'Association Bad In Lez (ABIL).
 
-First, run the development server:
+Elle remplace le fichier Excel historique par une UX mobile-first, un mode présentation pour la cérémonie de remise, des garde-fous de cohérence, et un partage en lecture seule par lien.
+
+## Démarrage
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Build statique (production)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+# génère le dossier out/ déployable n'importe où (Vercel, Netlify, GitHub Pages…)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tests
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+Couvre les fonctions pures (`lib/series`, `lib/defaults`, `lib/derivations`, `lib/validators`, `lib/share-codec`, `lib/storage`, `lib/store`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Persistance & sauvegarde
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Auto-sauvegarde locale dans `localStorage` (clé `abil-prizes:v1`)
+- Export JSON via le bouton **Partager → Télécharger le JSON**
+- Import JSON via la page `/import`
+- Reset complet avec double confirmation (`/import` → Reset complet)
 
-## Deploy on Vercel
+## Partage multi-appareils
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Bouton **Partager** dans l'en-tête → URL avec snapshot compressé (`/share?s=…`) + QR code
+- Les bénévoles ouvrent le lien → vue en **lecture seule** (verrouillage automatique)
+- Si le tournoi est trop volumineux pour une URL : télécharge le JSON, partage-le par WhatsApp, les bénévoles importent via `/import`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Raccourcis cérémonie (`/ceremonie`)
+
+| Touche      | Action                          |
+|-------------|---------------------------------|
+| `←` / `→`   | Série précédente / suivante     |
+| `↑` / `↓`   | Catégorie précédente / suivante |
+| `Espace`    | Marquer les lots comme remis    |
+| `F`         | Mode projecteur plein écran     |
+| `Échap`     | Quitter le mode projecteur      |
+
+## Garde-fous de cohérence
+
+Le dashboard liste automatiquement :
+
+- **V1** : finaliste plus doté que le vainqueur dans une même série
+- **V2** : ELITE moins dotée qu'une série numérotée
+- **V3** : écart > 30 % entre catégories au même rang (équité H/F & Simple/Double)
+- **V4** : stock insuffisant pour finaliser
+- **V5** : séries non dotées (informatif)
+
+## Stack
+
+Next.js 16 (`output: 'export'`) · React 19 · TypeScript · Tailwind 4 · shadcn/ui · Zustand · LZ-string · @react-pdf/renderer · Framer Motion · Sonner.
+
+## Documents
+
+- Spec design : [`docs/superpowers/specs/2026-05-18-abil-prizes-design.md`](docs/superpowers/specs/2026-05-18-abil-prizes-design.md)
+- Plan d'implémentation : [`docs/superpowers/plans/2026-05-18-abil-prizes.md`](docs/superpowers/plans/2026-05-18-abil-prizes.md)

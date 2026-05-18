@@ -1,0 +1,7 @@
+export function ValueChip({ value }: { value: number }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary font-medium text-xs tabular-nums">
+      {value.toLocaleString('fr-FR')} €
+    </span>
+  )
+}

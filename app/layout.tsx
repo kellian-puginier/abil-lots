@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
+import { AppShell } from '@/components/layout/AppShell'
 
 const barlow = Barlow({
   variable: '--font-barlow',
@@ -29,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${barlow.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <AppShell>{children}</AppShell>
         <Toaster richColors position="top-center" />
       </body>
     </html>
