@@ -1,30 +1,41 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { encodeSnapshot, MAX_URL_PAYLOAD } from '@/lib/share-codec'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { encodeSnapshot } from '@/lib/share-codec'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Copy, Download, AlertTriangle } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 
+/**
+ * Limite pratique d'encodage QR (niveau L ≈ 2 953 octets de data).
+ * On prend une marge confortable pour le préfixe URL.
+ * NB : la longueur de l'URL elle-même n'est plus limitée car on utilise
+ * le fragment (#) qui n'est jamais envoyé au serveur → aucune limite CDN/Vercel.
+ */
+const MAX_QR_CHARS = 1_400
+
 export function ShareDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const t = useStore(s => s.tournament)
   const [base] = useState(() => typeof window !== 'undefined' ? window.location.origin : '')
   const isLocalhost = base.includes('localhost') || base.includes('127.0.0.1')
 
-  // Encodage mémoïsé — évite de recalculer à chaque render
   const encoded = useMemo(() => {
     try { return encodeSnapshot(t) } catch { return '' }
   }, [t])
 
-  const url = `${base}/share/?s=${encoded}`
-  const tooLong = encoded.length > MAX_URL_PAYLOAD || encoded.length === 0
+  // ── Fragment URL : le "#" n'est JAMAIS envoyé au serveur → aucune limite ──
+  const url = encoded ? `${base}/share/#s=${encoded}` : ''
+  const canShowQr = !isLocalhost && encoded.length > 0 && encoded.length <= MAX_QR_CHARS
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(url); toast.success('Lien copié') }
-    catch { toast.error('Copie impossible') }
+    if (!url) { toast.error('Impossible de générer le lien.'); return }
+    try { await navigator.clipboard.writeText(url); toast.success('Lien copié !') }
+    catch { toast.error('Copie impossible — colle l\'URL manuellement.') }
   }
 
   const downloadJson = () => {
@@ -42,44 +53,50 @@ export function ShareDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         <DialogHeader>
           <DialogTitle>Partager le snapshot</DialogTitle>
           <DialogDescription>
-            Lien en lecture seule. Repartage-le à chaque mise à jour majeure pour que les bénévoles voient la dernière version.
+            Lien en lecture seule. Repartage-le à chaque mise à jour majeure.
           </DialogDescription>
         </DialogHeader>
 
-        {/* ⚠️ Avertissement localhost — l'app n'est accessible qu'en local */}
+        {/* Avertissement localhost */}
         {isLocalhost && (
           <div className="flex gap-2 rounded-md border border-secondary bg-secondary/10 p-3 text-sm">
             <AlertTriangle className="size-4 mt-0.5 shrink-0 text-secondary-foreground" />
             <div>
-              <strong>Application en mode local (localhost)</strong><br />
-              Le lien généré contient <code>localhost</code> et ne fonctionnera <strong>pas</strong> depuis un autre appareil.
-              Pour partager avec les bénévoles, deux options :<br />
-              <span className="font-medium">① Déploie l&apos;app sur Vercel</span> (gratuit, même démarche que abil-survey) — le lien fonctionnera depuis n&apos;importe où.<br />
-              <span className="font-medium">② Utilise le JSON</span> ci-dessous : télécharge-le, envoie-le par WhatsApp/mail, les bénévoles l&apos;importent via <code>/import</code>.
+              <strong>Application locale (localhost)</strong><br />
+              Ce lien ne fonctionnera <strong>pas</strong> depuis un autre appareil.
+              Déploie sur Vercel, ou utilise le JSON ci-dessous (les bénévoles l&apos;importent via <code>/import</code>).
             </div>
           </div>
         )}
 
-        {tooLong ? (
-          <div className="space-y-3">
-            <p className="text-sm text-destructive">
-              Snapshot trop volumineux pour une URL ({encoded.length} caractères).
-              Télécharge le JSON et transmets-le — les bénévoles l&apos;importent via la page <code>/import</code>.
-            </p>
-            <Button onClick={downloadJson}><Download className="size-4 mr-1" /> Télécharger le JSON</Button>
-          </div>
+        {!encoded ? (
+          <p className="text-sm text-destructive">Impossible d&apos;encoder le tournoi. Essaie de recharger la page.</p>
         ) : (
           <div className="space-y-3">
-            {/* QR code — utile uniquement si l'app est déployée */}
-            {!isLocalhost && (
+            {/* QR code — uniquement si les données sont assez petites */}
+            {canShowQr ? (
               <div className="flex justify-center bg-card p-3 rounded-md border">
                 <QRCodeSVG value={url} size={180} level="L" />
               </div>
-            )}
-            <Input readOnly value={url} aria-label="URL du snapshot" className="text-xs" />
+            ) : !isLocalhost ? (
+              <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                📋 QR code non disponible (tournoi trop volumineux pour un QR).
+                Utilise le bouton Copier ou le JSON.
+              </div>
+            ) : null}
+
+            <Input readOnly value={url} aria-label="URL du snapshot" className="text-xs font-mono" />
+            <p className="text-xs text-muted-foreground">
+              Le lien encode l&apos;intégralité du tournoi dans l&apos;URL (fragment <code>#s=…</code>).
+              Rien n&apos;est stocké sur un serveur.
+            </p>
             <div className="flex gap-2">
-              <Button onClick={copy}><Copy className="size-4 mr-1" /> Copier l&apos;URL</Button>
-              <Button variant="outline" onClick={downloadJson}><Download className="size-4 mr-1" /> JSON</Button>
+              <Button onClick={copy} className="flex-1">
+                <Copy className="size-4 mr-1" /> Copier le lien
+              </Button>
+              <Button variant="outline" onClick={downloadJson}>
+                <Download className="size-4 mr-1" /> JSON
+              </Button>
             </div>
           </div>
         )}
