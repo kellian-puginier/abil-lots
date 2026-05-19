@@ -62,38 +62,77 @@ export function PresentationStage() {
     'Escape':     () => { setProjector(false); setSelectorOpen(false) },
   })
 
+  /* ─── Rendu d'un bloc de lots (normal ou H/F) ──────────── */
+  const genderSplit = !!a?.genderSplit
+
+  const renderLots = (refs: typeof a.winner, label: string | null = null) => {
+    if (!refs?.length) return null
+    return (
+      <div className="space-y-2">
+        {label && <div className="text-base font-semibold text-muted-foreground">{label}</div>}
+        {refs.map((ref, i) => {
+          const it = t.stock.find(x => x.id === ref.stockItemId)
+          return it ? <LotCardLarge key={i} item={it} count={ref.count} /> : null
+        })}
+      </div>
+    )
+  }
+
+  const roleSection = (
+    role: 'winner' | 'finalist',
+    Icon: typeof Trophy,
+    iconClass: string,
+    label: string,
+  ) => {
+    if (!a) return <p className="text-muted-foreground">Aucun lot attribué.</p>
+    const fKey = role === 'winner' ? 'winnerF' : 'finalistF'
+
+    if (genderSplit) {
+      const hasM = (a[role]?.length ?? 0) > 0
+      const hasF = ((a[fKey] as typeof a.winner | undefined)?.length ?? 0) > 0
+      if (!hasM && !hasF) return <p className="text-muted-foreground">Aucun lot attribué.</p>
+      return (
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="text-lg font-semibold">👨 Homme</div>
+            {hasM ? renderLots(a[role]) : <p className="text-muted-foreground text-sm">—</p>}
+          </div>
+          <div className="space-y-2">
+            <div className="text-lg font-semibold">👩 Femme</div>
+            {hasF ? renderLots(a[fKey] as typeof a.winner) : <p className="text-muted-foreground text-sm">—</p>}
+          </div>
+        </div>
+      )
+    }
+
+    const refs = a[role]
+    if (!refs?.length) return <p className="text-muted-foreground">Aucun lot attribué.</p>
+    return (
+      <div className="space-y-2">
+        {renderLots(refs)}
+        {isDouble && !genderSplit && (
+          <p className="text-muted-foreground text-sm">× 2 (un par joueur)</p>
+        )}
+      </div>
+    )
+  }
+
   /* ─── Contenu principal (lots vainqueur / finaliste) ─── */
   const stage = (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-4">
-        <section className="space-y-2">
+        <section className="space-y-3">
           <h2 className="flex items-center gap-2 text-2xl">
             <Trophy className="size-7 text-secondary" /> Vainqueur
           </h2>
-          {a?.winner.length ? (
-            <div className="space-y-2">
-              {a.winner.map((ref, i) => {
-                const it = t.stock.find(x => x.id === ref.stockItemId)
-                return it ? <LotCardLarge key={i} item={it} count={ref.count} /> : null
-              })}
-              {isDouble && <p className="text-muted-foreground text-sm">× 2 (un par joueur)</p>}
-            </div>
-          ) : <p className="text-muted-foreground">Aucun lot attribué.</p>}
+          {roleSection('winner', Trophy, 'text-secondary', 'Vainqueur')}
         </section>
 
-        <section className="space-y-2">
+        <section className="space-y-3">
           <h2 className="flex items-center gap-2 text-2xl">
             <Medal className="size-7 text-muted-foreground" /> Finaliste
           </h2>
-          {a?.finalist.length ? (
-            <div className="space-y-2">
-              {a.finalist.map((ref, i) => {
-                const it = t.stock.find(x => x.id === ref.stockItemId)
-                return it ? <LotCardLarge key={i} item={it} count={ref.count} /> : null
-              })}
-              {isDouble && <p className="text-muted-foreground text-sm">× 2 (un par joueur)</p>}
-            </div>
-          ) : <p className="text-muted-foreground">Aucun lot attribué.</p>}
+          {roleSection('finalist', Medal, 'text-muted-foreground', 'Finaliste')}
         </section>
       </div>
     </div>

@@ -166,15 +166,37 @@ export const useStore = create<StoreState>((set) => ({
       if (!src) return s
       const attributions = { ...s.tournament.attributions }
       for (const k of targetKeys) {
-        // Déduire la catégorie cible depuis la clé (ex: "DH-ELITE" → "DH")
         const targetCode = k.split('-')[0] as CategoryCode
         const isDouble = s.tournament.categories[targetCode]?.isDouble ?? false
-        const mult = isDouble ? 2 : 1
-        // Normaliser le count selon le type de la catégorie cible
-        attributions[k] = {
-          winner:   src.winner.map(r => ({ ...r, count: mult })),
-          finalist: src.finalist.map(r => ({ ...r, count: mult })),
-          status: 'draft',
+
+        if (isDouble && src.genderSplit) {
+          // Cible double + source H/F → on propage le mode H/F, count=1
+          attributions[k] = {
+            winner:    src.winner.map(r => ({ ...r, count: 1 })),
+            finalist:  src.finalist.map(r => ({ ...r, count: 1 })),
+            winnerF:   (src.winnerF ?? []).map(r => ({ ...r, count: 1 })),
+            finalistF: (src.finalistF ?? []).map(r => ({ ...r, count: 1 })),
+            genderSplit: true,
+            status: 'draft',
+          }
+        } else if (!isDouble && src.genderSplit) {
+          // Cible simple + source H/F → on ne peut pas faire du H/F sur un simple
+          // On prend les lots Homme (winner) avec count=1 et on ignore winnerF
+          attributions[k] = {
+            winner:   src.winner.map(r => ({ ...r, count: 1 })),
+            finalist: src.finalist.map(r => ({ ...r, count: 1 })),
+            genderSplit: false,
+            status: 'draft',
+          }
+        } else {
+          // Cas standard : normaliser count selon le type de la cible
+          const mult = isDouble ? 2 : 1
+          attributions[k] = {
+            winner:   src.winner.map(r => ({ ...r, count: mult })),
+            finalist: src.finalist.map(r => ({ ...r, count: mult })),
+            genderSplit: false,
+            status: 'draft',
+          }
         }
       }
       return { tournament: withSave({ ...s.tournament, attributions }) }
