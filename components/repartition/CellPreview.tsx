@@ -2,91 +2,133 @@
 import type { CategoryCode, StockItem, LotRef } from '@/types/tournament'
 import { useStore } from '@/lib/store'
 import { valuePerPlayer } from '@/lib/derivations'
-import { StatusBadge } from '@/components/shared/StatusBadge'
 import { LOT_COLOR_TOKEN } from '@/lib/lot-colors'
 
-/** Abréviations courtes affichées dans la pastille */
+export type ViewMode = 'compact' | 'detail'
+
+/* ─── Abréviations ──────────────────────────────────────── */
 const ABBREV: Record<string, string> = {
-  cheque:     'Chq',
-  bon:        'BA',
-  biere:      'Bière',
-  volants:    'Vol',
-  hybride:    'Hyb',
-  accessoire: 'Acc',
+  cheque: 'Chq', bon: 'BA', biere: 'Bière',
+  volants: 'Vol', hybride: 'Hyb', accessoire: 'Acc',
 }
 
-/** Pastille colorée avec abréviation du type + montant */
-function LotPill({ item, count }: { item: StockItem; count: number }) {
-  const value = item.amount ?? item.unitValue ?? 0
-  const abbrev = ABBREV[item.kind] ?? item.kind
-  const isLight = item.kind === 'biere' || item.kind === 'volants' || item.kind === 'hybride'
-  const textColor = isLight ? 'text-foreground' : 'text-white'
+/* ─── Couleur de texte sur fond coloré ──────────────────── */
+function textOnBg(kind: string) {
+  return kind === 'biere' || kind === 'volants' || kind === 'hybride'
+    ? 'text-foreground' : 'text-white'
+}
 
+/* ─── Mode compact : simple petit carré coloré ─────────── */
+function CompactDot({ item }: { item: StockItem }) {
   return (
     <span
-      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-tight border border-black/10 ${textColor}`}
+      title={`${ABBREV[item.kind] ?? item.kind} — ${item.label}`}
+      className="inline-block size-3 rounded-sm border border-black/10"
+      style={{ backgroundColor: `var(--${LOT_COLOR_TOKEN[item.kind]})` }}
+      aria-hidden
+    />
+  )
+}
+
+/* ─── Mode détail : pill colorée avec abréviation + montant */
+function DetailPill({ item, count }: { item: StockItem; count: number }) {
+  const value = item.amount ?? item.unitValue ?? 0
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-semibold border border-black/10 ${textOnBg(item.kind)}`}
       style={{ backgroundColor: `var(--${LOT_COLOR_TOKEN[item.kind]})` }}
     >
-      <span>{abbrev}</span>
-      <span className="opacity-90">{value > 0 ? `${value}€` : ''}</span>
+      {ABBREV[item.kind] ?? item.kind}
+      {value > 0 && <span className="opacity-90 ml-0.5">{value}€</span>}
       {count > 1 && <span className="opacity-70 ml-0.5">×{count}</span>}
     </span>
   )
 }
 
-/** Ligne vainqueur ou finaliste : icône + pills + €/joueur */
-function RoleRow({
-  emoji, refs, t, perPlayer,
-}: {
-  emoji: string
-  refs: LotRef[]
-  t: ReturnType<typeof useStore.getState>['tournament']
-  perPlayer: number
-}) {
-  if (refs.length === 0) return null
+/* ─── Statut : petit indicateur coloré ──────────────────── */
+function StatusDot({ status }: { status: string }) {
+  const cls = status === 'validated'
+    ? 'bg-emerald-500'
+    : status === 'draft'
+    ? 'bg-secondary'
+    : 'bg-muted-foreground/30'
+  return <span className={`inline-block size-2 rounded-full ${cls} shrink-0`} aria-hidden />
+}
+
+/* ─── Montant par joueur ─────────────────────────────────── */
+function PerPlayer({ value }: { value: number }) {
+  if (value <= 0) return null
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      <span className="text-[10px] shrink-0">{emoji}</span>
-      {refs.map((ref, i) => {
-        const item = t.stock.find(x => x.id === ref.stockItemId)
-        return item ? <LotPill key={i} item={item} count={ref.count} /> : null
-      })}
-      <span className="ml-auto text-[10px] font-bold tabular-nums text-primary whitespace-nowrap">
-        {perPlayer > 0 ? `${perPlayer.toLocaleString('fr-FR')} €/j` : ''}
-      </span>
-    </div>
+    <span className="ml-auto text-[10px] font-bold tabular-nums text-primary whitespace-nowrap">
+      {value.toLocaleString('fr-FR')} €/j
+    </span>
   )
 }
 
-export function CellPreview({ code, sKey, onOpen }: { code: CategoryCode; sKey: string; onOpen: () => void }) {
-  const t = useStore(s => s.tournament)
-  const key = `${code}-${sKey}`
+/* ─── Composant principal ────────────────────────────────── */
+export function CellPreview({
+  code, sKey, onOpen, mode,
+}: {
+  code: CategoryCode
+  sKey: string
+  onOpen: () => void
+  mode: ViewMode
+}) {
+  const t     = useStore(s => s.tournament)
+  const key   = `${code}-${sKey}`
   const award = t.attributions[key]
   const status = award?.status ?? 'empty'
   const winnerPP   = valuePerPlayer(t, key, 'winner')
   const finalistPP = valuePerPlayer(t, key, 'finalist')
 
+  const hasLots = award && (award.winner.length > 0 || award.finalist.length > 0)
+
+  const renderRefs = (refs: LotRef[], pp: number) => {
+    if (refs.length === 0) return null
+    return (
+      <div className="flex flex-wrap items-center gap-1 w-full">
+        {refs.map((ref, i) => {
+          const item = t.stock.find(x => x.id === ref.stockItemId)
+          if (!item) return null
+          return mode === 'compact'
+            ? <CompactDot key={i} item={item} />
+            : <DetailPill key={i} item={item} count={ref.count} />
+        })}
+        <PerPlayer value={pp} />
+      </div>
+    )
+  }
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full min-h-[96px] p-2 rounded-md border bg-card hover:border-primary text-left flex flex-col gap-1.5 transition-colors"
       aria-label={`Modifier ${code} ${sKey}`}
+      className={`
+        w-full text-left flex flex-col gap-1 rounded-md border bg-card
+        hover:border-primary transition-colors p-2
+        ${mode === 'compact' ? 'min-h-[80px]' : 'min-h-[96px]'}
+      `}
     >
-      {/* En-tête : nom série + badge statut */}
-      <div className="flex items-center justify-between gap-1">
+      {/* En-tête */}
+      <div className="flex items-center justify-between gap-1 w-full">
         <span className="font-semibold text-sm leading-none">{sKey}</span>
-        <StatusBadge status={status} />
+        <StatusDot status={status} />
       </div>
 
-      {/* Lignes vainqueur / finaliste */}
-      {award && (award.winner.length > 0 || award.finalist.length > 0) ? (
-        <div className="flex flex-col gap-1 flex-1">
-          <RoleRow emoji="🏆" refs={award.winner}   t={t} perPlayer={winnerPP} />
-          <RoleRow emoji="🥈" refs={award.finalist} t={t} perPlayer={finalistPP} />
+      {hasLots ? (
+        <div className="flex flex-col gap-1 flex-1 w-full">
+          <div className="flex items-center gap-1 w-full">
+            <span className="text-[10px] shrink-0">🏆</span>
+            {renderRefs(award!.winner, winnerPP)}
+          </div>
+          <div className="flex items-center gap-1 w-full">
+            <span className="text-[10px] shrink-0">🥈</span>
+            {renderRefs(award!.finalist, finalistPP)}
+          </div>
         </div>
       ) : (
-        <span className="text-[11px] text-muted-foreground mt-auto">Non doté</span>
+        <span className="text-[10px] text-muted-foreground mt-auto">—</span>
       )}
     </button>
   )
