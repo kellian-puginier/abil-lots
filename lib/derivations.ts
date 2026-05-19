@@ -1,4 +1,4 @@
-import type { Tournament, StockItem, CategoryCode, SeriesAward } from '@/types/tournament'
+import type { Tournament, StockItem, CategoryCode, SeriesAward, LotRef } from '@/types/tournament'
 import { generateSeriesKeys } from '@/lib/series'
 
 // ─── Valeurs unitaires ───────────────────────────────────────────────────────
@@ -8,10 +8,31 @@ export function stockItemValue(item: StockItem): number {
   return item.amount ?? item.unitValue ?? 0
 }
 
-/** Coût réel pour le club (peut être inférieur si achat en gros / remise).
- *  Si non renseigné, on suppose qu'il égale la valeur perçue. */
+/** Coût réel pour le club (défaut = valeur perçue si non renseigné). */
 export function stockItemClubCost(item: StockItem): number {
   return item.clubCost ?? stockItemValue(item)
+}
+
+// ─── Helpers internes ────────────────────────────────────────────────────────
+
+/**
+ * Retourne l'ensemble des LotRef d'une attribution, en tenant compte
+ * du mode genderSplit (lots H/F distincts).
+ */
+function allRefs(award: SeriesAward): LotRef[] {
+  const base = [...award.winner, ...award.finalist]
+  if (award.genderSplit) {
+    return [...base, ...(award.winnerF ?? []), ...(award.finalistF ?? [])]
+  }
+  return base
+}
+
+function roleRefs(award: SeriesAward, role: 'winner' | 'finalist'): LotRef[] {
+  if (award.genderSplit) {
+    const f = role === 'winner' ? (award.winnerF ?? []) : (award.finalistF ?? [])
+    return [...award[role], ...f]
+  }
+  return award[role]
 }
 
 // ─── Stock utilisé / restant ─────────────────────────────────────────────────
@@ -19,7 +40,7 @@ export function stockItemClubCost(item: StockItem): number {
 export function stockUsed(t: Tournament, stockItemId: string): number {
   let total = 0
   for (const award of Object.values(t.attributions)) {
-    for (const ref of [...award.winner, ...award.finalist]) {
+    for (const ref of allRefs(award)) {
       if (ref.stockItemId === stockItemId) total += ref.count
     }
   }
@@ -30,9 +51,9 @@ export function stockRemaining(t: Tournament, item: StockItem): number {
   return item.quantity - stockUsed(t, item.id)
 }
 
-// ─── Valeur d'une attribution (rôle vainqueur ou finaliste) ──────────────────
+// ─── Valeur d'un rôle ────────────────────────────────────────────────────────
 
-function awardValue(t: Tournament, refs: SeriesAward['winner']): { perPlayer: number; total: number } {
+function refsValue(t: Tournament, refs: LotRef[]): { perPlayer: number; total: number } {
   let perPlayer = 0
   let total = 0
   for (const ref of refs) {
@@ -49,17 +70,47 @@ function awardValue(t: Tournament, refs: SeriesAward['winner']): { perPlayer: nu
 export function cellTotalValue(t: Tournament, key: string): number {
   const a = t.attributions[key]
   if (!a) return 0
-  return awardValue(t, a.winner).total + awardValue(t, a.finalist).total
+  if (a.genderSplit) {
+    return (
+      refsValue(t, a.winner).total +
+      refsValue(t, a.winnerF ?? []).total +
+      refsValue(t, a.finalist).total +
+      refsValue(t, a.finalistF ?? []).total
+    )
+  }
+  return refsValue(t, a.winner).total + refsValue(t, a.finalist).total
 }
 
-/** Valeur perçue par joueur (pas × count) pour un rôle donné. */
+/**
+ * Valeur perçue par joueur pour un rôle (mode non-split : même valeur pour tous).
+ * En mode genderSplit, retourne la valeur de l'homme (pour rétro-compatibilité).
+ * Utiliser `valuePerGender` pour le détail H/F.
+ */
 export function valuePerPlayer(t: Tournament, key: string, role: 'winner' | 'finalist'): number {
   const a = t.attributions[key]
   if (!a) return 0
-  return awardValue(t, a[role]).perPlayer
+  return refsValue(t, a[role]).perPlayer
 }
 
-// ─── Progression / récapitulatif ─────────────────────────────────────────────
+/**
+ * Valeur perçue par joueur en mode genderSplit.
+ * Retourne null si la série n'est pas en mode genderSplit.
+ */
+export function valuePerGender(
+  t: Tournament,
+  key: string,
+  role: 'winner' | 'finalist',
+): { m: number; f: number } | null {
+  const a = t.attributions[key]
+  if (!a?.genderSplit) return null
+  const fKey = role === 'winner' ? 'winnerF' : 'finalistF'
+  return {
+    m: refsValue(t, a[role]).perPlayer,
+    f: refsValue(t, a[fKey] ?? []).perPlayer,
+  }
+}
+
+// ─── Progression ─────────────────────────────────────────────────────────────
 
 export function categoryProgress(t: Tournament, code: CategoryCode): { validated: number; total: number } {
   const cfg = t.categories[code]
@@ -95,17 +146,11 @@ export function totalRecipients(t: Tournament): number {
 // ─── Synthèse financière ─────────────────────────────────────────────────────
 
 export interface TournamentTotals {
-  /** Somme des valeurs perçues par les joueurs sur toutes les attributions. */
   playerValueTotal: number
-  /** Somme des coûts réels du club sur toutes les attributions. */
   clubCostTotal: number
-  /** Part du coût club couverte par la dotation équipementier. */
   dotationConsumed: number
-  /** Ce que le club paie vraiment en cash (hors dotation). */
   realCashSpend: number
-  /** Enveloppe de dotation configurée (0 si non renseignée). */
   dotationEnvelope: number
-  /** Dotation restante (peut être négative si dépassée). */
   dotationRemaining: number
 }
 
@@ -115,7 +160,7 @@ export function tournamentTotals(t: Tournament): TournamentTotals {
   let dotationConsumed = 0
 
   for (const award of Object.values(t.attributions)) {
-    for (const ref of [...award.winner, ...award.finalist]) {
+    for (const ref of allRefs(award)) {
       const item = t.stock.find(x => x.id === ref.stockItemId)
       if (!item) continue
       playerValueTotal += stockItemValue(item) * ref.count
@@ -130,8 +175,8 @@ export function tournamentTotals(t: Tournament): TournamentTotals {
     playerValueTotal,
     clubCostTotal,
     dotationConsumed,
-    realCashSpend:      clubCostTotal - dotationConsumed,
+    realCashSpend:     clubCostTotal - dotationConsumed,
     dotationEnvelope,
-    dotationRemaining:  dotationEnvelope - dotationConsumed,
+    dotationRemaining: dotationEnvelope - dotationConsumed,
   }
 }

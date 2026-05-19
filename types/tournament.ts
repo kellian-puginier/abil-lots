@@ -22,10 +22,13 @@ export interface LotRef {
 export type AwardStatus = 'empty' | 'draft' | 'validated'
 
 export interface SeriesAward {
-  winner: LotRef[]
-  finalist: LotRef[]
+  winner: LotRef[]      // lots communs (simple) ou lots de l'HOMME (si genderSplit=true)
+  finalist: LotRef[]    // idem
+  winnerF?: LotRef[]    // lots de la FEMME — uniquement si genderSplit=true
+  finalistF?: LotRef[]  // idem
+  genderSplit?: boolean // distinguer les lots H/F dans la paire (double mixte)
   status: AwardStatus
-  deliveredAt?: string  // ISO timestamp
+  deliveredAt?: string
 }
 
 export interface CategoryConfig {

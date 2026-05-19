@@ -26,6 +26,8 @@ interface StoreState {
 
   setAward: (code: CategoryCode, seriesKey: string, award: SeriesAward) => void
   setLot: (key: string, role: 'winner' | 'finalist', refs: LotRef[]) => void
+  setLotGender: (key: string, role: 'winner' | 'finalist', gender: 'm' | 'f', refs: LotRef[]) => void
+  setGenderSplit: (key: string, enabled: boolean) => void
   setAwardStatus: (key: string, status: SeriesAward['status']) => void
   toggleDelivered: (key: string) => void
   duplicateAward: (sourceKey: string, targetKeys: string[]) => void
@@ -104,6 +106,41 @@ export const useStore = create<StoreState>((set) => ({
     set(s => {
       const prev: SeriesAward = s.tournament.attributions[key] ?? { winner: [], finalist: [], status: 'draft' }
       const next: SeriesAward = { ...prev, [role]: refs, status: prev.status === 'empty' ? 'draft' : prev.status }
+      return { tournament: withSave({ ...s.tournament, attributions: { ...s.tournament.attributions, [key]: next } }) }
+    }),
+
+  setLotGender: (key, role, gender, refs) =>
+    set(s => {
+      const prev: SeriesAward = s.tournament.attributions[key] ?? { winner: [], finalist: [], status: 'draft', genderSplit: true }
+      const fKey = role === 'winner' ? 'winnerF' : 'finalistF'
+      const next: SeriesAward = gender === 'm'
+        ? { ...prev, [role]: refs, status: prev.status === 'empty' ? 'draft' : prev.status }
+        : { ...prev, [fKey]: refs, status: prev.status === 'empty' ? 'draft' : prev.status }
+      return { tournament: withSave({ ...s.tournament, attributions: { ...s.tournament.attributions, [key]: next } }) }
+    }),
+
+  setGenderSplit: (key, enabled) =>
+    set(s => {
+      const prev: SeriesAward = s.tournament.attributions[key] ?? { winner: [], finalist: [], status: 'draft' }
+      const next: SeriesAward = enabled
+        // Activation : passer count=1 sur tous les refs existants (ils deviennent les lots de l'homme)
+        ? {
+            ...prev,
+            genderSplit: true,
+            winner:   prev.winner.map(r => ({ ...r, count: 1 })),
+            finalist: prev.finalist.map(r => ({ ...r, count: 1 })),
+            winnerF:   [],
+            finalistF: [],
+          }
+        // Désactivation : recombiner — on reprend les lots de l'homme avec count=2
+        : {
+            ...prev,
+            genderSplit: false,
+            winner:   prev.winner.map(r => ({ ...r, count: 2 })),
+            finalist: prev.finalist.map(r => ({ ...r, count: 2 })),
+            winnerF:   undefined,
+            finalistF: undefined,
+          }
       return { tournament: withSave({ ...s.tournament, attributions: { ...s.tournament.attributions, [key]: next } }) }
     }),
 
