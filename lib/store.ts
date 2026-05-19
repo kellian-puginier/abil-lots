@@ -125,7 +125,16 @@ export const useStore = create<StoreState>((set) => ({
       if (!src) return s
       const attributions = { ...s.tournament.attributions }
       for (const k of targetKeys) {
-        attributions[k] = { winner: [...src.winner], finalist: [...src.finalist], status: 'draft' }
+        // Déduire la catégorie cible depuis la clé (ex: "DH-ELITE" → "DH")
+        const targetCode = k.split('-')[0] as CategoryCode
+        const isDouble = s.tournament.categories[targetCode]?.isDouble ?? false
+        const mult = isDouble ? 2 : 1
+        // Normaliser le count selon le type de la catégorie cible
+        attributions[k] = {
+          winner:   src.winner.map(r => ({ ...r, count: mult })),
+          finalist: src.finalist.map(r => ({ ...r, count: mult })),
+          status: 'draft',
+        }
       }
       return { tournament: withSave({ ...s.tournament, attributions }) }
     }),

@@ -34,6 +34,22 @@ describe('store actions', () => {
     expect(useStore.getState().tournament.meta.locked).toBe(true)
   })
 
+  it('duplicateAward normalise le count selon le type de la catégorie cible', () => {
+    const { setAward, duplicateAward } = useStore.getState()
+    // Source : SH-ELITE (simple) avec count=1
+    setAward('SH', 'ELITE', {
+      winner:   [{ stockItemId: 'chq150', count: 1 }],
+      finalist: [{ stockItemId: 'chq100', count: 1 }],
+      status: 'validated',
+    })
+    // Dupliquer vers DH-ELITE (double) → count doit passer à 2
+    duplicateAward('SH-ELITE', ['DH-ELITE', 'SD-ELITE'])
+    const t = useStore.getState().tournament
+    expect(t.attributions['DH-ELITE'].winner[0].count).toBe(2)   // double → 2
+    expect(t.attributions['DH-ELITE'].finalist[0].count).toBe(2)
+    expect(t.attributions['SD-ELITE'].winner[0].count).toBe(1)   // simple → 1
+  })
+
   it('toggleDelivered sets and clears deliveredAt', () => {
     const { setAward, toggleDelivered } = useStore.getState()
     setAward('SH', 'ELITE', { winner: [], finalist: [], status: 'validated' })
