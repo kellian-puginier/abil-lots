@@ -21,6 +21,11 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata: Metadata = {
   title: 'ABIL Prizes — Tour des Héraults',
   description: "Gestion des récompenses du tournoi Tour des Héraults (ABIL)",
+  icons: {
+    icon:             '/logo-abil-noir.png',
+    apple:            '/logo-abil-noir.png',
+    shortcut:         '/logo-abil-noir.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useCallback } from 'react'
+import Image from 'next/image'
 import type { CategoryCode } from '@/types/tournament'
 import { useStore } from '@/lib/store'
 import { generateSeriesKeys } from '@/lib/series'
@@ -141,12 +142,25 @@ export function PresentationStage() {
   /* ─── Mode projecteur plein écran ───────────────────── */
   if (projector) {
     return (
-      <div className="fixed inset-0 bg-background z-50 p-8 overflow-auto">
-        <div className="max-w-5xl mx-auto space-y-8">
-          <header className="flex items-center justify-between">
-            <h1 className="font-display text-4xl">{cfg.label} · {sKey}</h1>
-            <ProjectorButton active onToggle={() => setProjector(false)} />
-          </header>
+      <div className="fixed inset-0 bg-background z-50 overflow-auto">
+        {/* Bandeau bleu ABIL en haut */}
+        <div className="bg-abil-hero px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo-abil-blanc.png"
+              alt="ABIL"
+              width={56}
+              height={56}
+              className="h-14 w-auto object-contain"
+              priority
+            />
+            <h1 className="font-display text-white text-4xl leading-none">
+              {cfg.label} <span className="text-secondary">·</span> {sKey}
+            </h1>
+          </div>
+          <ProjectorButton active onToggle={() => setProjector(false)} />
+        </div>
+        <div className="max-w-5xl mx-auto p-8 space-y-8">
           {stage}
         </div>
       </div>
@@ -159,11 +173,20 @@ export function PresentationStage() {
 
       {/* Barre supérieure */}
       <header className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <h1>Cérémonie</h1>
-          <p className="text-muted-foreground text-sm">
-            ←/→ série · ↑/↓ catégorie · S sélecteur · Espace remis · F projecteur
-          </p>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo-abil-noir.png"
+            alt="ABIL"
+            width={48}
+            height={48}
+            className="h-12 w-auto object-contain"
+          />
+          <div>
+            <h1 className="leading-none">Cérémonie</h1>
+            <p className="text-muted-foreground text-sm">
+              ←/→ série · ↑/↓ catégorie · S sélecteur · Espace remis · F projecteur
+            </p>
+          </div>
         </div>
         <ProjectorButton active={projector} onToggle={() => setProjector(p => !p)} />
       </header>

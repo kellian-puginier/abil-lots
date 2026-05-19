@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 import { useHydrated } from '@/hooks/useHydrated'
 import { SideNav } from './SideNav'
 import { BottomNav } from './BottomNav'
@@ -17,7 +18,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SideNav />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex items-center justify-between px-4 py-3 border-b bg-card no-print">
-          <div className="md:hidden font-display text-lg leading-none">ABIL <span className="text-primary">Prizes</span></div>
+          {/* Logo ABIL — mobile uniquement (la sidenav le montre sur desktop) */}
+          <div className="md:hidden flex items-center gap-2">
+            <Image
+              src="/logo-abil-noir.png"
+              alt="ABIL"
+              width={32}
+              height={32}
+              className="h-8 w-auto object-contain"
+              priority
+            />
+            <span className="font-display text-sm text-primary tracking-widest uppercase">Prizes</span>
+          </div>
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
             <AutosaveIndicator />
             <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}><Share2 className="size-4 mr-1" /> Partager</Button>

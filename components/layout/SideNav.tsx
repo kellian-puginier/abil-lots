@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Package, Settings, Grid3x3, Trophy, ListChecks } from 'lucide-react'
 
@@ -16,7 +17,19 @@ export function SideNav() {
   const path = usePathname()
   return (
     <aside className="hidden md:flex md:w-56 shrink-0 flex-col gap-1 p-4 border-r bg-card no-print">
-      <h1 className="font-display text-2xl mb-4 leading-none">ABIL <span className="text-primary">Prizes</span></h1>
+      {/* Logo ABIL */}
+      <div className="mb-4 flex flex-col items-center gap-0.5">
+        <Image
+          src="/logo-abil-noir.png"
+          alt="ABIL — Bad In Lez"
+          width={120}
+          height={120}
+          priority
+          className="w-24 h-auto object-contain"
+        />
+        <span className="font-display text-sm text-primary tracking-widest uppercase">Prizes</span>
+      </div>
+
       {ITEMS.map(({ href, label, Icon }) => {
         const active = path === href
         return (
