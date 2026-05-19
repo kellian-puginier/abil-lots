@@ -17,6 +17,7 @@ interface StoreState {
   setName: (name: string) => void
   setYear: (year: number) => void
   setLocked: (locked: boolean) => void
+  setDotationEnvelope: (amount: number | undefined) => void
 
   setSeriesCount: (code: CategoryCode, count: number) => void
 
@@ -66,6 +67,9 @@ export const useStore = create<StoreState>((set) => ({
 
   setLocked: (locked) =>
     set(s => ({ tournament: withSave({ ...s.tournament, meta: { ...s.tournament.meta, locked } }) })),
+
+  setDotationEnvelope: (amount) =>
+    set(s => ({ tournament: withSave({ ...s.tournament, meta: { ...s.tournament.meta, dotationEnvelope: amount } }) })),
 
   setSeriesCount: (code, count) =>
     set(s => {

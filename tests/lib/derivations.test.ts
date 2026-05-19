@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   stockItemValue,
+  stockItemClubCost,
   stockUsed,
   stockRemaining,
   cellTotalValue,
@@ -8,6 +9,7 @@ import {
   categoryProgress,
   overallProgress,
   totalRecipients,
+  tournamentTotals,
 } from '@/lib/derivations'
 import { defaultTournament } from '@/lib/defaults'
 import type { Tournament } from '@/types/tournament'
@@ -101,5 +103,39 @@ describe('totalRecipients', () => {
     const t = makeT()
     // SH:6*2 + SD:4*2 + DH:7*4 + DD:6*4 + DMX:7*4 = 12 + 8 + 28 + 24 + 28 = 100
     expect(totalRecipients(t)).toBe(100)
+  })
+})
+
+describe('stockItemClubCost', () => {
+  it('returns clubCost when set', () => {
+    expect(stockItemClubCost({ id: 'x', kind: 'volants', label: '', unitValue: 30, clubCost: 20, quantity: 1 })).toBe(20)
+  })
+  it('falls back to player value when clubCost absent', () => {
+    expect(stockItemClubCost({ id: 'x', kind: 'cheque', label: '', amount: 150, quantity: 1 })).toBe(150)
+  })
+})
+
+describe('tournamentTotals', () => {
+  it('distingue valeur joueur, coût club et dotation', () => {
+    const t = defaultTournament(2026)
+    // Volant : valeur 30€ joueur, coût club 20€, marqué dotation
+    t.stock = [
+      { id: 'vol', kind: 'volants', label: 'Volants', unitValue: 30, clubCost: 20, usesDotation: true, quantity: 10 },
+      { id: 'chq', kind: 'cheque',  label: 'Chèque',  amount: 150,                usesDotation: false, quantity: 5 },
+    ]
+    t.attributions = {
+      'SH-ELITE': {
+        winner:   [{ stockItemId: 'vol', count: 1 }, { stockItemId: 'chq', count: 1 }],
+        finalist: [],
+        status: 'draft',
+      },
+    }
+    t.meta.dotationEnvelope = 100
+    const totals = tournamentTotals(t)
+    expect(totals.playerValueTotal).toBe(30 + 150)          // 180
+    expect(totals.clubCostTotal).toBe(20 + 150)             // 170
+    expect(totals.dotationConsumed).toBe(20)                // volant seul est dotation
+    expect(totals.realCashSpend).toBe(170 - 20)            // 150
+    expect(totals.dotationRemaining).toBe(100 - 20)        // 80
   })
 })

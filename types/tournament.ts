@@ -7,8 +7,10 @@ export interface StockItem {
   id: string
   kind: StockItemKind
   label: string
-  amount?: number       // for cheque / bon: face value in EUR
-  unitValue?: number    // for biere / volants / hybride / accessoire
+  amount?: number       // valeur perçue joueur : cheque / bon (face value)
+  unitValue?: number    // valeur perçue joueur : biere / volants / hybride / accessoire
+  clubCost?: number     // coût réel pour le club (optionnel — défaut = valeur perçue)
+  usesDotation?: boolean // ce lot est couvert par l'enveloppe de dotation équipementier
   quantity: number      // total available
 }
 
@@ -40,6 +42,7 @@ export interface Tournament {
     savedAt: string
     locked: boolean
     schemaVersion: 1
+    dotationEnvelope?: number   // enveloppe de dotation équipementier (€ total disponible)
   }
   categories: Record<CategoryCode, CategoryConfig>
   stock: StockItem[]

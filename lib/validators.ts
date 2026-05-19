@@ -3,9 +3,10 @@ import { generateSeriesKeys } from '@/lib/series'
 import {
   valuePerPlayer,
   stockRemaining,
+  tournamentTotals,
 } from '@/lib/derivations'
 
-export type AlertCode = 'V1' | 'V2' | 'V3' | 'V4' | 'V5'
+export type AlertCode = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6'
 export type AlertSeverity = 'info' | 'warn' | 'error'
 
 export interface Alert {
@@ -81,6 +82,18 @@ export function runValidators(t: Tournament): Alert[] {
       if (!a || (a.winner.length === 0 && a.finalist.length === 0)) {
         alerts.push({ code: 'V5', severity: 'info', key, message: `Série ${key} non dotée.` })
       }
+    }
+  }
+
+  // V6 — dotation dépassée
+  if (t.meta.dotationEnvelope !== undefined && t.meta.dotationEnvelope > 0) {
+    const totals = tournamentTotals(t)
+    if (totals.dotationConsumed > totals.dotationEnvelope) {
+      const excès = (totals.dotationConsumed - totals.dotationEnvelope).toLocaleString('fr-FR')
+      alerts.push({
+        code: 'V6', severity: 'warn',
+        message: `Dotation dépassée de ${excès} € (${totals.dotationConsumed.toLocaleString('fr-FR')} € attribués pour ${totals.dotationEnvelope.toLocaleString('fr-FR')} € d'enveloppe).`,
+      })
     }
   }
 
